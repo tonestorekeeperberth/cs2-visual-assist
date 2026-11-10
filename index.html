@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>cs2-visual-assist — CS2 Wallhack Overlay</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg-0: #070a17;
+    --bg-1: #0d1230;
+    --bg-2: #131a3f;
+    --ink: #e8ecff;
+    --muted: #9aa3c7;
+    --accent: #6d8bff;
+    --accent-2: #b06dff;
+    --accent-3: #4be3c1;
+    --line: rgba(140, 160, 255, 0.16);
+    --card: rgba(20, 27, 60, 0.55);
+  }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+    color: var(--ink);
+    background:
+      radial-gradient(1200px 700px at 15% -10%, rgba(109, 139, 255, 0.22), transparent 60%),
+      radial-gradient(1000px 600px at 90% 0%, rgba(176, 109, 255, 0.18), transparent 55%),
+      radial-gradient(900px 700px at 50% 110%, rgba(75, 227, 193, 0.10), transparent 60%),
+      linear-gradient(180deg, var(--bg-0) 0%, var(--bg-1) 45%, var(--bg-2) 100%);
+    background-attachment: fixed;
+    min-height: 100vh;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  a { color: inherit; text-decoration: none; }
+
+  .wrap { width: min(1120px, 92vw); margin: 0 auto; }
+
+  /* ---------- NAV ---------- */
+  .nav-outer {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    padding: 14px 0;
+    backdrop-filter: blur(18px) saturate(140%);
+    -webkit-backdrop-filter: blur(18px) saturate(140%);
+    background: rgba(9, 13, 32, 0.55);
+    border-bottom: 1px solid var(--line);
+  }
+  .nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+  }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 800;
+    letter-spacing: 0.2px;
+    font-size: 1.05rem;
+  }
+  .brand-mark {
+    width: 30px; height: 30px;
+    border-radius: 9px;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    display: grid; place-items: center;
+    font-size: 0.95rem;
+    box-shadow: 0 0 18px rgba(109, 139, 255, 0.55);
+  }
+  .brand-name { background: linear-gradient(90deg, #fff, #b9c6ff); -webkit-background-clip: text; background-clip: text; color: transparent; }
+
+  .nav-links { display: flex; gap: 26px; font-size: 0.92rem; color: var(--muted); }
+  .nav-links a { transition: color .18s ease; position: relative; }
+  .nav-links a:hover { color: #fff; }
+  .nav-links a::after {
+    content: ""; position: absolute; left: 0; bottom: -6px; width: 0; height: 2px;
+    background: linear-gradient(90deg, var(--accent), var(--accent-2));
+    transition: width .22s ease; border-radius: 2px;
+  }
+  .nav-links a:hover::after { width: 100%; }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    border-radius: 11px;
+    font-weight: 700;
+    font-size: 0.92rem;
+    padding: 11px 20px;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: transform .16s ease, box-shadow .2s ease, background .2s ease, border-color .2s ease;
+    white-space: nowrap;
+  }
+  .btn-primary {
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    color: #fff;
+    box-shadow: 0 8px 26px rgba(109, 139, 255, 0.38);
+  }
+  .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 12px 32px rgba(140, 120, 255, 0.5); }
+  .btn-ghost {
+    background: rgba(255,255,255,0.03);
+    border-color: var(--line);
+    color: var(--ink);
+  }
+  .btn-ghost:hover { background: rgba(255,255,255,0.07); border-color: rgba(160,180,255,0.4); transform: translateY(-2px); }
+  .btn-lg { padding: 15px 30px; font-size: 1rem; border-radius: 13px; }
+
+  /* ---------- HERO ---------- */
+  .hero { padding: 84px 0 64px; text-align: center; }
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    padding: 7px 16px;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    color: #c7d3ff;
+    background: rgba(109, 139, 255, 0.10);
+    border: 1px solid rgba(130, 155, 255, 0.30);
+    margin-bottom: 26px;
+  }
+  .pill .dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--accent-3);
+    box-shadow: 0 0 10px var(--accent-3);
+    animation: pulse 2s infinite ease-in-out;
+  }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .35; } }
+
+  h1 {
+    font-size: clamp(2.1rem, 6vw, 4rem);
+    line-height: 1.08;
+    font-weight: 900;
+    letter-spacing: -1.2px;
+    margin-bottom: 22px;
+  }
+  .grad {
+    background: linear-gradient(100deg, #8fa6ff 0%, #b06dff 45%, #4be3c1 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .hero p {
+    max-width: 660px;
+    margin: 0 auto 34px;
+    color: var(--muted);
+    font-size: clamp(1rem, 2vw, 1.12rem);
+  }
+  .hero-actions {
+    display: flex;
+    justify-content: center;
+    gap: 14px;
+    flex-wrap: wrap;
+    margin-bottom: 48px;
+  }
+
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+    max-width: 860px;
+    margin: 0 auto;
+  }
+  .chip {
+    padding: 16px 12px;
+    border-radius: 14px;
+    background: var(--card);
+    border: 1px solid var(--line);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+  .chip .k { display: block; font-size: 1.12rem; font-weight: 800; color: #fff; }
+  .chip .v { display: block; font-size: 0.74rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.8px; margin-top: 3px; }
+
+  /* ---------- SECTIONS ---------- */
+  section { padding: 76px 0; }
+  .sec-head { text-align: center; margin-bottom: 46px; }
+  .sec-head h2 {
+    font-size: clamp(1.6rem, 3.6vw, 2.4rem);
+    font-weight: 800;
+    letter-spacing: -0.6px;
+    margin-bottom: 10px;
+  }
+  .sec-head p { color: var(--muted); max-width: 560px; margin: 0 auto; font-size: 0.98rem; }
+
+  /* ---------- FEATURES ---------- */
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+  }
+  .card {
+    position: relative;
+    padding: 28px 24px 26px;
+    border-radius: 16px;
+    background: var(--card);
+    border: 1px solid var(--line);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    overflow: hidden;
+    transition: transform .22s ease, border-color .22s ease, box-shadow .22s ease;
+  }
+  .card::before {
+    content: "";
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--accent), var(--accent-2), var(--accent-3));
+    opacity: 0.85;
+  }
+  .card:hover {
+    transform: translateY(-7px);
+    border-color: rgba(150, 170, 255, 0.42);
+    box-shadow: 0 20px 44px rgba(8, 12, 34, 0.65), 0 0 0 1px rgba(130,155,255,0.12);
+  }
+  .card .ico {
+    font-size: 1.7rem;
+    display: inline-grid;
+    place-items: center;
+    width: 52px; height: 52px;
+    border-radius: 13px;
+    background: rgba(109, 139, 255, 0.10);
+    border: 1px solid rgba(130, 155, 255, 0.22);
+    margin-bottom: 16px;
+  }
+  .card h3 { font-size: 1.06rem; font-weight: 800; margin-bottom: 8px; }
+  .card p { color: var(--muted); font-size: 0.9rem; }
+
+  /* ---------- HOW IT WORKS ---------- */
+  .steps {
+    position: relative;
+    max-width: 720px;
+    margin: 0 auto;
+    padding-left: 8px;
+  }
+  .steps::before {
+    content: "";
+    position: absolute;
+    left: 35px;
+    top: 16px;
+    bottom: 16px;
+    width: 3px;
+    border-radius: 3px;
+    background: linear-gradient(180deg, var(--accent), var(--accent-2), var(--accent-3));
+    opacity: 0.65;
+  }
+  .step {
+    position: relative;
+    display: flex;
+    gap: 22px;
+    align-items: flex-start;
+    padding: 18px 0;
+  }
+  .step-num {
+    flex: 0 0 auto;
+    width: 56px; height: 56px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    font-weight: 900;
+    font-size: 1.15rem;
+    color: #fff;
+    background: linear-gradient(135deg, #1a2355, #2a2166);
+    border: 2px solid rgba(140, 160, 255, 0.45);
+    box-shadow: 0 0 22px rgba(109, 139, 255, 0.30);
+    z-index: 1;
+  }
+  .step-body { padding-top: 4px; }
+  .step-body h3 { font-size: 1.08rem; font-weight: 800; margin-bottom: 6px; }
+  .step-body p { color: var(--muted); font-size: 0.92rem; }
+
+  /* ---------- FAQ ---------- */
+  .faq { max-width: 760px; margin: 0 auto; display: grid; gap: 14px; }
+  details {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    overflow: hidden;
+    transition: border-color .2s ease, background .2s ease;
+  }
+  details[open] { border-color: rgba(150, 170, 255, 0.40); background: rgba(26, 34, 72, 0.7); }
+  summary {
+    list-style: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 19px 22px;
+    font-weight: 700;
+    font-size: 0.98rem;
+    user-select: none;
+  }
+  summary::-webkit-details-marker { display: none; }
+  .plus {
+    flex: 0 0 auto;
+    width: 26px; height: 26px;
+    display: grid; place-items: center;
+    font-size: 1.25rem;
+    font-weight: 400;
+    color: var(--accent);
+    border-radius: 8px;
+    background: rgba(109, 139, 255, 0.10);
+    transition: transform .25s ease, color .25s ease, background .25s ease;
+  }
+  details[open] .plus {
+    transform: rotate(45deg);
+    color: var(--accent-3);
+    background: rgba(75, 227, 193, 0.12);
+  }
+  .faq-a {
+    padding: 0 22px 20px;
+    color: var(--muted);
+    font-size: 0.92rem;
+    border-top: 1px solid rgba(140, 160, 255, 0.10);
+    padding-top: 16px;
+    margin-top: 0;
+  }
+
+  /* ---------- CTA ---------- */
+  .cta-banner {
+    position: relative;
+    overflow: hidden;
+    text-align: center;
+    padding: 66px 28px;
+    border-radius: 24px;
+    border: 1px solid rgba(150, 170, 255, 0.28);
+    background:
+      radial-gradient(600px 340px at 50% 0%, rgba(140, 120, 255, 0.30), transparent 65%),
+      linear-gradient(160deg, rgba(28, 36, 78, 0.85), rgba(16, 22, 52, 0.92));
+    box-shadow: 0 30px 80px rgba(6, 9, 26, 0.7), inset 0 1px 0 rgba(255,255,255,0.06);
+  }
+  .cta-banner::after {
+    content: "";
+    position: absolute;
+    inset: auto 0 -60% 0;
+    height: 220px;
+    background: radial-gradient(closest-side, rgba(75, 227, 193, 0.22), transparent);
+    pointer-events: none;
+  }
+  .cta-banner h2 {
+    font-size: clamp(1.6rem, 4vw, 2.5rem);
+    font-weight: 900;
+    letter-spacing: -0.8px;
+    margin-bottom: 12px;
+    position: relative;
+  }
+  .cta-banner p {
+    color: var(--muted);
+    max-width: 520px;
+    margin: 0 auto 30px;
+    font-size: 1rem;
+    position: relative;
+  }
+  .cta-banner .btn { position: relative; }
+
+  /* ---------- FOOTER ---------- */
+  footer {
+    border-top: 1px solid var(--line);
+    padding: 34px 0 44px;
+    margin-top: 40px;
+  }
+  .foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    font-size: 0.86rem;
+    color: var(--muted);
+  }
+  .foot a { color: #b9c6ff; transition: color .18s ease; }
+  .foot a:hover { color: #fff; }
+  .foot .foot-links { display: flex; gap: 20px; }
+
+  /* ---------- RESPONSIVE ---------- */
+  @media (max-width: 640px) {
+    .nav-links { display: none; }
+    .hero { padding: 56px 0 44px; }
+    .stats { grid-template-columns: 1fr 1fr; }
+    .grid { grid-template-columns: 1fr; }
+    .hero-actions .btn { width: 100%; }
+    .steps::before { left: 27px; }
+    .step-num { width: 46px; height: 46px; font-size: 1rem; }
+    .step { gap: 16px; }
+    .cta-banner { padding: 48px 20px; border-radius: 18px; }
+    .foot { flex-direction: column; text-align: center; }
+  }
+</style>
+</head>
+<body>
+
+<div class="nav-outer">
+  <nav class="nav wrap">
+    <div class="brand">
+      <span class="brand-mark">🎯</span>
+      <span class="brand-name">cs2-visual-assist</span>
+    </div>
+    <div class="nav-links">
+      <a href="#features">Features</a>
+      <a href="#how">How it works</a>
+      <a href="#faq">FAQ</a>
+    </div>
+    <a class="btn btn-primary" href="https://gitscore.cc" target="_blank" rel="noopener">Download</a>
+  </nav>
+</div>
+
+<header class="hero wrap">
+  <span class="pill"><span class="dot"></span>CS2 Wallhack · External Overlay</span>
+  <h1>See the round <span class="grad">before it happens</span> with cs2-visual-assist</h1>
+  <p>
+    A lightweight external overlay for Counter-Strike 2 that draws enemy ESP boxes, skeleton chams,
+    a visibility check and a team-color radar — all rendered on top of your game in a clean,
+    configurable HUD. No VAC bypass claims, no kernel drivers, just pure visual overlays.
+  </p>
+  <div class="hero-actions">
+    <a class="btn btn-primary btn-lg" href="https://gitscore.cc" target="_blank" rel="noopener">⬇ Download for Windows</a>
+    <a class="btn btn-ghost btn-lg" href="https://gitscore.cc" target="_blank" rel="noopener">★ View on GitHub</a>
+  </div>
+  <div class="stats">
+    <div class="chip"><span class="k">128K+</span><span class="v">Downloads</span></div>
+    <div class="chip"><span class="k">v2.4.1</span><span class="v">Latest version</span></div>
+    <div class="chip"><span class="k">Windows 10 / 11</span><span class="v">Platform</span></div>
+    <div class="chip"><span class="k">Free &amp; open source</span><span class="v">License</span></div>
+  </div>
+</header>
+
+<section id="features" class="wrap">
+  <div class="sec-head">
+    <h2>Built for <span class="grad">clarity</span>, not clutter</h2>
+    <p>Every visual module in cs2-visual-assist is tuned for CS2 so your screen stays readable while giving you the full picture.</p>
+  </div>
+  <div class="grid">
+    <div class="card">
+      <div class="ico">📦</div>
+      <h3>Enemy ESP Boxes</h3>
+      <p>Clean 2D bounding boxes snap to enemy players with distance-scaled thickness, so you instantly read position and range.</p>
+    </div>
+    <div class="card">
+      <div class="ico">🦴</div>
+      <h3>Skeleton Chams</h3>
+      <p>Bone-accurate skeleton overlays render through geometry, making enemy stance and movement direction obvious at a glance.</p>
+    </div>
+    <div class="card">
+      <div class="ico">👁️</div>
+      <h3>Visibility Check</h3>
+      <p>A raycast visibility pass tints visible targets differently from occluded ones, so you know exactly who can see you back.</p>
+    </div>
+    <div class="card">
+      <div class="ico">🧭</div>
+      <h3>Team-Color Radar</h3>
+      <p>An external radar map marks teammates, enemies and last-known positions using distinct team colors for fast reads.</p>
+    </div>
+    <div class="card">
+      <div class="ico">⚙️</div>
+      <h3>Live Config HUD</h3>
+      <p>Toggle modules, change colors and adjust box styles from an in-overlay menu without touching config files or restarting.</p>
+    </div>
+    <div class="card">
+      <div class="ico">🪶</div>
+      <h3>Low-Overhead Renderer</h3>
+      <p>An external injector with a DirectX overlay keeps CPU and GPU usage minimal, so your CS2 frame rate stays stable.</p>
+    </div>
+  </div>
+</section>
+
+<section id="how" class="wrap">
+  <div class="sec-head">
+    <h2>Up and running in <span class="grad">three steps</span></h2>
+    <p>No compiler, no dependency hell — a single Windows binary and a few clicks.</p>
+  </div>
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-body">
+        <h3>Download the release</h3>
+        <p>Grab the latest cs2-visual-assist build from the download page and extract it to any folder on your Windows 10 or 11 machine.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-body">
+        <h3>Launch the external injector</h3>
+        <p>Start Counter-Strike 2 windowed or fullscreen, then run the injector — the overlay attaches externally and draws the HUD over the game.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-body">
+        <h3>Configure your ESP</h3>
+        <p>Open the in-overlay config, enable enemy boxes, skeleton chams, visibility check and the team-color radar, then tune colors to your taste.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="faq" class="wrap">
+  <div class="sec-head">
+    <h2>Frequently asked <span class="grad">questions</span></h2>
+    <p>What you should know before running cs2-visual-assist on your setup.</p>
+  </div>
+  <div class="faq">
+    <details>
+      <summary>Is cs2-visual-assist free to download?<span class="plus">+</span></summary>
+      <div class="faq-a">Yes. cs2-visual-assist is free and open source. The full external overlay — ESP boxes, skeleton chams, visibility check and team-color radar — is included in the public release available on the download page.</div>
+    </details>
+    <details>
+      <summary>Which Windows versions are supported?<span class="plus">+</span></summary>
+      <div class="faq-a">The overlay targets Windows 10 and Windows 11 (64-bit). It runs as a standard external process with a DirectX overlay renderer, so no special drivers or kernel components need to be installed.</div>
+    </details>
+    <details>
+      <summary>Does it claim to bypass VAC or anti-cheat?<span class="plus">+</span></summary>
+      <div class="faq-a">No. cs2-visual-assist makes no VAC bypass claims and does not include anti-cheat circumvention code. It is an external visual overlay project provided for research and educational use — using it in online matchmaking is at your own risk.</div>
+    </details>
+    <details>
+      <summary>How do I update to the newest version?<span class="plus">+</span></summary>
+      <div class="faq-a">Download the latest build from https://gitscore.cc and replace your existing files. Your configuration is stored separately, so your ESP colors and radar settings carry over between versions.</div>
+    </details>
+  </div>
+</section>
+
+<section class="wrap">
+  <div class="cta-banner">
+    <h2>Ready to sharpen your <span class="grad">game sense</span>?</h2>
+    <p>Download cs2-visual-assist and get enemy ESP boxes, skeleton chams, visibility check and a team-color radar in one lightweight overlay.</p>
+    <a
